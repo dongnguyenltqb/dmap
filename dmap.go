@@ -39,7 +39,7 @@ func (m *dmap) run() {
 		}
 		if cmd.t == delCmd {
 			delete(m.internal, cmd.key)
-			cmd.result <- m.internal[cmd.key]
+			cmd.result <- nil
 		}
 		if cmd.t == keyCmd {
 			keys := make([]string, 0, len(m.internal))
