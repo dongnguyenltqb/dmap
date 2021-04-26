@@ -1,7 +1,5 @@
 package dmap
 
-import "fmt"
-
 const (
 	closeCmd = "CLOSE"
 	setCmd   = "SET"
@@ -29,13 +27,11 @@ func (m *dmap) run() {
 			close(m.poom)
 			m.internal = nil
 			return
+		case getCmd:
+			cmd.result <- m.internal[cmd.key]
 		case setCmd:
 			m.internal[cmd.key] = cmd.value
 			cmd.result <- cmd.value
-
-		case getCmd:
-			cmd.result <- m.internal[cmd.key]
-
 		case delCmd:
 			delete(m.internal, cmd.key)
 			cmd.result <- nil
@@ -51,9 +47,6 @@ func (m *dmap) run() {
 
 func (m *dmap) pushCmd(cmd command) {
 	m.poom <- cmd
-	if cmd.t == closeCmd {
-		fmt.Print("closed map")
-	}
 }
 
 func (m *dmap) Get(key string) interface{} {
