@@ -1,10 +1,13 @@
 package dmap
 
+import "fmt"
+
 const (
-	setCmd = "SET"
-	getCmd = "GET"
-	delCmd = "DEL"
-	keyCmd = "KEY"
+	closeCmd = "CLOSE"
+	setCmd   = "SET"
+	getCmd   = "GET"
+	delCmd   = "DEL"
+	keyCmd   = "KEY"
 )
 
 type command struct {
@@ -19,29 +22,24 @@ type dmap struct {
 	internal map[string]interface{}
 }
 
-func NewMap() *dmap {
-	m := &dmap{
-		poom:     make(chan command),
-		internal: make(map[string]interface{}),
-	}
-	go m.run()
-	return m
-}
-
 func (m *dmap) run() {
 	for cmd := range m.poom {
-		if cmd.t == setCmd {
+		switch cmd.t {
+		case closeCmd:
+			close(m.poom)
+			m.internal = nil
+			return
+		case setCmd:
 			m.internal[cmd.key] = cmd.value
 			cmd.result <- cmd.value
-		}
-		if cmd.t == getCmd {
+
+		case getCmd:
 			cmd.result <- m.internal[cmd.key]
-		}
-		if cmd.t == delCmd {
+
+		case delCmd:
 			delete(m.internal, cmd.key)
 			cmd.result <- nil
-		}
-		if cmd.t == keyCmd {
+		case keyCmd:
 			keys := make([]string, 0, len(m.internal))
 			for key := range m.internal {
 				keys = append(keys, key)
@@ -53,6 +51,9 @@ func (m *dmap) run() {
 
 func (m *dmap) pushCmd(cmd command) {
 	m.poom <- cmd
+	if cmd.t == closeCmd {
+		fmt.Print("closed map")
+	}
 }
 
 func (m *dmap) Get(key string) interface{} {
@@ -99,4 +100,19 @@ func (m *dmap) Keys() []string {
 	items := <-result
 	kq, _ := items.([]string)
 	return kq
+}
+
+func (m *dmap) Close() {
+	m.pushCmd(command{
+		t: closeCmd,
+	})
+}
+
+func NewMap() *dmap {
+	m := &dmap{
+		poom:     make(chan command),
+		internal: make(map[string]interface{}),
+	}
+	go m.run()
+	return m
 }

@@ -37,7 +37,9 @@ func Test(t *testing.T) {
 	firstName := m.Get("firstName").(string)
 	lastName := m.Get("lastName").(string)
 	age := m.Get("age")
+	m.Close()
 	if firstName != "Dong" || lastName != "nguyen" || age != nil {
 		t.Error("Expect Dong nguyen <nil> result = ", firstName, lastName, age)
 	}
+
 }
