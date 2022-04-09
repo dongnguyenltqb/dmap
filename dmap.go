@@ -8,103 +8,104 @@ const (
 	keyCmd   = "KEY"
 )
 
-type command struct {
-	t      string
-	key    string
-	value  interface{}
-	result chan interface{}
+type command[K comparable, V interface{}] struct {
+	kind   string
+	key    K
+	value  V
+	chGet  chan V
+	chKeys chan []K
+	chSet  chan V
+	chDel  chan K
 }
 
-type dmap struct {
-	poom     chan command
-	internal map[string]interface{}
+type dmap[K comparable, V interface{}] struct {
+	poom     chan command[K, V]
+	internal map[K]V
 }
 
-func (m *dmap) run() {
+func (m *dmap[K, V]) run() {
 	for cmd := range m.poom {
-		switch cmd.t {
+		switch cmd.kind {
 		case closeCmd:
 			close(m.poom)
 			m.internal = nil
 			return
 		case getCmd:
-			cmd.result <- m.internal[cmd.key]
+			cmd.chGet <- m.internal[cmd.key]
 		case setCmd:
 			m.internal[cmd.key] = cmd.value
-			cmd.result <- cmd.value
+			cmd.chSet <- cmd.value
 		case delCmd:
 			delete(m.internal, cmd.key)
-			cmd.result <- nil
+			cmd.chDel <- cmd.key
 		case keyCmd:
-			keys := make([]string, 0, len(m.internal))
+			keys := make([]K, 0, len(m.internal))
 			for key := range m.internal {
 				keys = append(keys, key)
 			}
-			cmd.result <- keys
+			cmd.chKeys <- keys
 		}
 	}
 }
 
-func (m *dmap) pushCmd(cmd command) {
+func (m *dmap[K, V]) pushCmd(cmd command[K, V]) {
 	m.poom <- cmd
 }
 
-func (m *dmap) Get(key string) interface{} {
-	result := make(chan interface{})
-	get := command{
-		t:      getCmd,
-		key:    key,
-		result: result,
+func (m *dmap[K, V]) Get(key K) interface{} {
+	result := make(chan V)
+	get := command[K, V]{
+		kind:  getCmd,
+		key:   key,
+		chGet: result,
 	}
 	go m.pushCmd(get)
 	return <-result
 }
 
-func (m *dmap) Del(key string) {
-	result := make(chan interface{})
-	del := command{
-		t:      delCmd,
-		key:    key,
-		result: result,
+func (m *dmap[K, V]) Del(key K) {
+	result := make(chan K)
+	del := command[K, V]{
+		kind:  delCmd,
+		key:   key,
+		chDel: result,
 	}
 	go m.pushCmd(del)
 	<-result
 }
 
-func (m *dmap) Set(key string, value interface{}) interface{} {
-	result := make(chan interface{})
-	set := command{
-		t:      setCmd,
-		key:    key,
-		value:  value,
-		result: result,
+func (m *dmap[K, V]) Set(key K, value V) V {
+	result := make(chan V)
+	set := command[K, V]{
+		kind:  setCmd,
+		key:   key,
+		value: value,
+		chSet: result,
 	}
 	go m.pushCmd(set)
 	return <-result
 }
 
-func (m *dmap) Keys() []string {
-	result := make(chan interface{})
-	key := command{
-		t:      keyCmd,
-		result: result,
+func (m *dmap[K, V]) Keys() []K {
+	result := make(chan []K)
+	key := command[K, V]{
+		kind:   keyCmd,
+		chKeys: result,
 	}
 	go m.pushCmd(key)
-	items := <-result
-	kq, _ := items.([]string)
-	return kq
+	return <-result
 }
 
-func (m *dmap) Close() {
-	m.pushCmd(command{
-		t: closeCmd,
+func (m *dmap[K, V]) Close() {
+	m.pushCmd(command[K, V]{
+		kind: closeCmd,
 	})
 }
 
-func NewMap() *dmap {
-	m := &dmap{
-		poom:     make(chan command),
-		internal: make(map[string]interface{}),
+func NewMap[K comparable, V interface{}]() *dmap[K, V] {
+	m := &dmap[K, V]{
+		poom:     make(chan command[K, V]),
+		internal: make(map[K]V),
 	}
 	go m.run()
 	return m

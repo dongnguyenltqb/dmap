@@ -1,32 +1,31 @@
 ### Usage
 
 ```go
-import "github.com/dongnguyenltqb/dmap"
 
 func run(){
-  // create new map[string]interface{}
-  m := dmap.New()
-  
+  // create new map[string]string
+  m := dmap[string,string].New()
+
   // set value for a key
   m.Set("username","dongnguyenltqb")
-  m.Set("email","dong.nguyen@gmail.com")
-  m.Set("age",24)
+  m.Set("age","25")
 
   // get value for a key
-  fmt.Println("email => ",m.Get("email"))
+  fmt.Println("username => ",m.Get("username"))
 
   // delete value for a key
   m.Del("username")
 
   // list keys for map
-  for _,key := range m.Keys{
-      fmt.Println("KEY=> ",key)
-  } 
+  for _,keys := range m.Keys{
+      fmt.Println("keys => ",keys)
+  }
 }
-
-// output 
-email =>  dong.nguyen@gmail.com
-KEY=> email
-KEY=> age
 ```
 
+### Output
+
+```go
+  username => dongnguyenltqb
+  keys => [username age]
+```
