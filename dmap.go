@@ -9,18 +9,18 @@ const (
 )
 
 type command[K comparable, V interface{}] struct {
-	kind   string
-	key    K
-	value  V
-	chGet  chan V
-	chKeys chan []K
-	chSet  chan V
-	chDel  chan K
+	kind  string
+	key   K
+	value V
 }
 
 type dmap[K comparable, V interface{}] struct {
 	poom     chan command[K, V]
 	internal map[K]V
+	chGet    chan V
+	chKeys   chan []K
+	chSet    chan V
+	chDel    chan K
 }
 
 func (m *dmap[K, V]) run() {
@@ -28,22 +28,26 @@ func (m *dmap[K, V]) run() {
 		switch cmd.kind {
 		case closeCmd:
 			close(m.poom)
+			close(m.chGet)
+			close(m.chSet)
+			close(m.chKeys)
+			close(m.chDel)
 			m.internal = nil
 			return
 		case getCmd:
-			cmd.chGet <- m.internal[cmd.key]
+			m.chGet <- m.internal[cmd.key]
 		case setCmd:
 			m.internal[cmd.key] = cmd.value
-			cmd.chSet <- cmd.value
+			m.chSet <- cmd.value
 		case delCmd:
 			delete(m.internal, cmd.key)
-			cmd.chDel <- cmd.key
+			m.chDel <- cmd.key
 		case keyCmd:
 			keys := make([]K, 0, len(m.internal))
 			for key := range m.internal {
 				keys = append(keys, key)
 			}
-			cmd.chKeys <- keys
+			m.chKeys <- keys
 		}
 	}
 }
@@ -53,47 +57,41 @@ func (m *dmap[K, V]) pushCmd(cmd command[K, V]) {
 }
 
 func (m *dmap[K, V]) Get(key K) interface{} {
-	result := make(chan V)
 	get := command[K, V]{
-		kind:  getCmd,
-		key:   key,
-		chGet: result,
+		kind: getCmd,
+		key:  key,
 	}
 	go m.pushCmd(get)
-	return <-result
+	return <-m.chGet
 }
 
 func (m *dmap[K, V]) Del(key K) {
-	result := make(chan K)
 	del := command[K, V]{
-		kind:  delCmd,
-		key:   key,
-		chDel: result,
+		kind: delCmd,
+		key:  key,
 	}
 	go m.pushCmd(del)
-	<-result
+	<-m.chDel
+
 }
 
 func (m *dmap[K, V]) Set(key K, value V) V {
-	result := make(chan V)
+
 	set := command[K, V]{
 		kind:  setCmd,
 		key:   key,
 		value: value,
-		chSet: result,
 	}
 	go m.pushCmd(set)
-	return <-result
+	return <-m.chSet
 }
 
 func (m *dmap[K, V]) Keys() []K {
-	result := make(chan []K)
 	key := command[K, V]{
-		kind:   keyCmd,
-		chKeys: result,
+		kind: keyCmd,
 	}
 	go m.pushCmd(key)
-	return <-result
+	return <-m.chKeys
 }
 
 func (m *dmap[K, V]) Close() {
@@ -106,6 +104,10 @@ func NewMap[K comparable, V interface{}]() *dmap[K, V] {
 	m := &dmap[K, V]{
 		poom:     make(chan command[K, V]),
 		internal: make(map[K]V),
+		chGet:    make(chan V),
+		chSet:    make(chan V),
+		chDel:    make(chan K),
+		chKeys:   make(chan []K),
 	}
 	go m.run()
 	return m
