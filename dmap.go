@@ -4,10 +4,10 @@ type TCMD string
 
 const (
 	closeCmd TCMD = "CLOSE"
-	setCmd        = "SET"
-	getCmd        = "GET"
-	delCmd        = "DEL"
-	keyCmd        = "KEY"
+	setCmd   TCMD = "SET"
+	getCmd   TCMD = "GET"
+	delCmd   TCMD = "DEL"
+	keyCmd   TCMD = "KEY"
 )
 
 type command[K comparable, V interface{}] struct {
@@ -25,7 +25,7 @@ func NewCommand[K comparable, V any](kind TCMD, key K, value V) command[K, V] {
 }
 
 type dmap[K comparable, V interface{}] struct {
-	poom     chan command[K, V]
+	poom     chan *command[K, V]
 	internal map[K]V
 	chGet    chan V
 	chKeys   chan []K
@@ -62,7 +62,7 @@ func (m *dmap[K, V]) run() {
 	}
 }
 
-func (m *dmap[K, V]) pushCmd(cmd command[K, V]) {
+func (m *dmap[K, V]) pushCmd(cmd *command[K, V]) {
 	m.poom <- cmd
 }
 
@@ -71,7 +71,7 @@ func (m *dmap[K, V]) Get(key K) interface{} {
 		kind: getCmd,
 		key:  key,
 	}
-	go m.pushCmd(get)
+	go m.pushCmd(&get)
 	return <-m.chGet
 }
 
@@ -80,7 +80,7 @@ func (m *dmap[K, V]) Del(key K) {
 		kind: delCmd,
 		key:  key,
 	}
-	go m.pushCmd(del)
+	go m.pushCmd(&del)
 	<-m.chDel
 
 }
@@ -91,7 +91,7 @@ func (m *dmap[K, V]) Set(key K, value V) V {
 		key:   key,
 		value: value,
 	}
-	go m.pushCmd(set)
+	go m.pushCmd(&set)
 	return <-m.chSet
 }
 
@@ -99,19 +99,19 @@ func (m *dmap[K, V]) Keys() []K {
 	key := command[K, V]{
 		kind: keyCmd,
 	}
-	go m.pushCmd(key)
+	go m.pushCmd(&key)
 	return <-m.chKeys
 }
 
 func (m *dmap[K, V]) Close() {
-	m.pushCmd(command[K, V]{
+	m.pushCmd(&command[K, V]{
 		kind: closeCmd,
 	})
 }
 
 func NewMap[K comparable, V interface{}]() *dmap[K, V] {
 	m := &dmap[K, V]{
-		poom:     make(chan command[K, V]),
+		poom:     make(chan *command[K, V]),
 		internal: make(map[K]V),
 		chGet:    make(chan V),
 		chSet:    make(chan V),

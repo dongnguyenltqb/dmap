@@ -32,15 +32,16 @@ func BenchmarkDMap(b *testing.B) {
 	wg := sync.WaitGroup{}
 	wg.Add(n)
 
-	var dict = NewMap[string, string]()
+	var dict = NewMap[*string, string]()
+	keyName := "dong"
 	for i := 1; i <= n; i++ {
 		go func(i int) {
 			defer func() {
 				wg.Done()
 			}()
-			dict.Set("name", "dong")
-			dict.Del("name")
-			dict.Get("name")
+			dict.Set(&keyName, keyName)
+			dict.Del(&keyName)
+			dict.Get(&keyName)
 		}(i)
 	}
 	wg.Wait()
