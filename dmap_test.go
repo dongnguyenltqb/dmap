@@ -2,6 +2,7 @@ package dmap
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 )
@@ -26,7 +27,7 @@ func Test(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkOps(b *testing.B) {
+func BenchmarkDMap(b *testing.B) {
 	var n = b.N
 	wg := sync.WaitGroup{}
 	wg.Add(n)
@@ -44,4 +45,31 @@ func BenchmarkOps(b *testing.B) {
 	}
 	wg.Wait()
 	dict.Close()
+}
+
+func BenchmarkCmd(b *testing.B) {
+	var n = b.N
+	for i := 1; i <= n; i++ {
+		cmd := NewCommand[string, string]("CLOSE", "dong", "dong")
+		cmd.kind = "GET"
+	}
+}
+
+func BenchmarkAlloc(b *testing.B) {
+	var n = b.N
+	for i := 1; i <= n; i++ {
+		m := NewMap[string, int]()
+		m.Close()
+	}
+}
+
+func BenchmarkOriginalMap(b *testing.B) {
+	var n = b.N
+	m := make(map[string]string)
+	for i := 1; i <= n; i++ {
+		key := strconv.Itoa(i)
+		m[key] = key
+		_ = m[key]
+		delete(m, key)
+	}
 }

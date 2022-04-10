@@ -1,17 +1,27 @@
 package dmap
 
+type TCMD string
+
 const (
-	closeCmd = "CLOSE"
-	setCmd   = "SET"
-	getCmd   = "GET"
-	delCmd   = "DEL"
-	keyCmd   = "KEY"
+	closeCmd TCMD = "CLOSE"
+	setCmd        = "SET"
+	getCmd        = "GET"
+	delCmd        = "DEL"
+	keyCmd        = "KEY"
 )
 
 type command[K comparable, V interface{}] struct {
-	kind  string
+	kind  TCMD
 	key   K
 	value V
+}
+
+func NewCommand[K comparable, V any](kind TCMD, key K, value V) command[K, V] {
+	return command[K, V]{
+		kind,
+		key,
+		value,
+	}
 }
 
 type dmap[K comparable, V interface{}] struct {
@@ -76,7 +86,6 @@ func (m *dmap[K, V]) Del(key K) {
 }
 
 func (m *dmap[K, V]) Set(key K, value V) V {
-
 	set := command[K, V]{
 		kind:  setCmd,
 		key:   key,
